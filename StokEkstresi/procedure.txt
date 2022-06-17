@@ -1,0 +1,67 @@
+USE [Test]
+GO
+/****** Object:  StoredProcedure [dbo].[TariheGoreStok]    Script Date: 6/17/2022 3:33:53 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+alter procedure [dbo].[TariheGoreStok]
+@malkodu as varchar(30),
+@tarih1 as int,
+@tarih2 as int
+as
+begin
+DECLARE @id as int
+DECLARE @stok as int
+DECLARE @islem as smallint
+DECLARE @miktar as numeric(25,6)
+DECLARE mycursor CURSOR for SELECT ID,IslemTur,Miktar  from STI order by Tarih
+set @stok = 0
+
+open mycursor;
+FETCH NEXT FROM mycursor INTO
+	@id,
+    @islem, 
+    @miktar;
+
+WHILE @@FETCH_STATUS = 0
+
+BEGIN
+        if(@islem = 0)
+		set @stok +=@miktar
+		else
+		set @stok -=@miktar
+
+		UPDATE STI set Fiyat =@stok where ID = @id
+		FETCH NEXT FROM mycursor INTO 
+		@id,
+		 @islem, 
+		 @miktar;
+END;
+close mycursor;
+deallocate mycursor;
+
+	Select (case 
+	when IslemTur = 0 then 'Giriş'
+	else 'Çıkış'
+	end) as SiraNo,
+
+	IslemTur,EvrakNo,CONVERT(VARCHAR(15), CAST(STI.Tarih - 2 AS datetime), 104) as Tarih2,
+
+	(case 
+	when IslemTur = 0 then Miktar
+	else 0
+	end) as GirisMiktar,
+
+	(case 
+	when IslemTur = 1 then Miktar
+	else 0
+	end) as CikisMiktar,
+
+	Fiyat as Stok
+
+	from STI
+	where
+	MalKodu = @malkodu and Tarih between @tarih1 and @tarih2
+	order by Tarih
+end
